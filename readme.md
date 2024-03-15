@@ -1,4 +1,6 @@
 # smooth-json
+![Publish Status](https://github.com/latonis/smooth-json/actions/workflows/publish.yml/badge.svg)
+
 This crate allows for flattening JSON objects into objects ready for use in Parquet, CSV, or other or data data styles.
 
 
@@ -9,6 +11,8 @@ The flattening is similar to ElasticSearch's [ingestion flattening](https://www.
 
 ## Examples
 ```rust
+use smooth_json::flatten;
+
 let input: Value = json!({
     "a": [
         {

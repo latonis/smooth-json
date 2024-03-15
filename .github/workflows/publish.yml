@@ -2,6 +2,8 @@ on:
   release:
     types: [published]
 
+name: Latest Release Build
+
 jobs:
   publish:
     name: Publish to crates.io

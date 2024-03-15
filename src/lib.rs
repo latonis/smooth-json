@@ -89,6 +89,38 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn serde_example() {
+        let base: Value = json!({
+            "name": "John Doe",
+            "age": 43,
+            "address": {
+                "street": "10 Downing Street",
+                "city": "London"
+            },
+            "phones": [
+                "+44 1234567",
+                "+44 2345678"
+            ]
+        });
+
+        let flat = flatten(&base, None);
+        
+        assert_eq!(
+            flat,
+            json!({
+                "name": "John Doe",
+                "age": 43,
+                "address.street": "10 Downing Street",
+                "address.city": "London",
+                "phones": [
+                    "+44 1234567",
+                    "+44 2345678"
+                ]
+            })
+        );
+    }
+
+    #[test]
     fn collision_object() {
         let base: Value = json!({
           "a": {
