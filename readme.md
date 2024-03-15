@@ -9,8 +9,10 @@ The flattening is similar to ElasticSearch's [ingestion flattening](https://www.
 ## Features
 - Flatten [serde_json](https://docs.rs/serde_json/latest/serde_json/)'s `Value` variants into structures suitable for use with applications that are expecting data or columnar data formats.
 - Pass a custom separator by instantiating a `Flattener` and passing the separator.
-- 
+
 ## Examples
+
+### Standard Usage
 ```rust
 use smooth_json;
 use serde_json::json;
@@ -49,6 +51,7 @@ fn main() {
 }
 ```
 
+### Custom Separator Usage
 ```rust
 use serde_json::json;
 use smooth_json;
