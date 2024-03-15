@@ -1,0 +1,12 @@
+[package]
+name = "smooth-json"
+author = "Jacob Latonis"
+readme = "readme.md"
+version = "0.1.0"
+edition = "2021"
+repository = ""
+keywords = ["flatten", "json", "parquet", "smooth", "unnest"]
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde_json = "1.0.114"
