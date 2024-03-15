@@ -24,7 +24,7 @@ impl<'a> Flattener<'a> {
         match json {
             Value::Array(obj_arr) => self.flatten_array(&mut flattened_val, "", obj_arr),
             Value::Object(obj_val) => self.flatten_object(&mut flattened_val, None, obj_val, false),
-            _ => {}
+            _ => self.flatten_value(&mut flattened_val, "", json, false),
         }
         Value::Object(flattened_val)
     }
@@ -342,5 +342,15 @@ mod tests {
         let result: Value = flattener.flatten(&input);
 
         assert_eq!(result, json!({"": ["a", "b"], ".b": ["1"]}));
+    }
+
+    #[test]
+    fn only_value() {
+        let flattener = Flattener::new();
+
+        let input: Value = json!("abc");
+        let result: Value = flattener.flatten(&input);
+
+        assert_eq!(result, json!({"": "abc"}));
     }
 }
