@@ -1,6 +1,6 @@
 [package]
 name = "smooth-json"
-author = "Jacob Latonis"
+authors = ["Jacob Latonis"]
 description = "Flatten serde_json Value variants into serde_json Objects ready for use in columnar or table like usages."
 readme = "readme.md"
 version = "0.1.0"
