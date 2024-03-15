@@ -8,23 +8,67 @@ The flattening is similar to ElasticSearch's [ingestion flattening](https://www.
 
 ## Features
 - Flatten [serde_json](https://docs.rs/serde_json/latest/serde_json/)'s `Value` variants into structures suitable for use with applications that are expecting data or columnar data formats.
-
+- Pass a custom separator by instantiating a `Flattener` and passing the separator.
+- 
 ## Examples
 ```rust
-use smooth_json::flatten;
+use smooth_json;
+use serde_json::json;
 
-let input: Value = json!({
-    "a": [
-        {
-            "b": ["1"]
-        }
-    ]
-});
+fn main() {
+    let flattener = smooth_json::Flattener::new();
 
-let result: Value = flatten(&input, None);
-/*
-{
-    "a.b": [1]
+    let example = json!({
+        "name": "John Doe",
+        "age": 43,
+        "address": {
+            "street": "10 Downing Street",
+            "city": "London"
+        },
+        "phones": [
+            "+44 1234567",
+            "+44 2345678"
+        ]
+    });
+
+    let flattened_example = flattener.flatten(&example);
+    
+    println!("{}", flattened_example);
+    /*
+    {
+        "address.city": "London",
+        "address.street": "10 Downing Street",
+        "age": 43,
+        "name": "John Doe",
+        "phones": [
+            "+44 1234567",
+            "+44 2345678"
+        ]
+    }
+    */
 }
-*/
+```
+
+```rust
+use serde_json::json;
+use smooth_json;
+
+fn main() {
+    let flattener = smooth_json::Flattener{separator: "$"};
+
+    let example = json!({
+        "a": {
+            "b": 1
+        }});
+
+    let flattened_example = flattener.flatten(&example);
+
+    println!("{}", flattened_example);
+    /*
+    {
+        "a$b": 1
+    }
+    */
+}
+
 ```

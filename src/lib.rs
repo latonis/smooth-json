@@ -2,83 +2,95 @@ use serde_json::json;
 use serde_json::Map;
 use serde_json::Value;
 
-pub fn flatten(json: &Value, separator: Option<&str>) -> Value {
-    let mut flattened_val = Map::<String, Value>::new();
-    match json {
-        Value::Array(_) => {
-            flatten_array(&mut flattened_val, "", json.as_array().unwrap(), separator)
-        }
-        Value::Object(obj_val) => {
-            flatten_object(&mut flattened_val, None, obj_val, false, separator)
-        }
-        _ => {}
-    }
-    Value::Object(flattened_val)
+pub struct Flattener<'a> {
+    pub separator: &'a str,
 }
 
-fn flatten_object(
-    builder: &mut Map<String, Value>,
-    identifier: Option<&str>,
-    obj: &Map<String, Value>,
-    arr: bool,
-    separator: Option<&str>,
-) {
-    for (k, v) in obj {
-        let sep = separator.unwrap_or(".");
-        let expanded_identifier =
-            identifier.map_or_else(|| k.clone(), |identifier| format!("{identifier}{sep}{k}"));
+impl<'a> Default for Flattener<'a> {
+    fn default() -> Self {
+        Flattener { separator: "." }
+    }
+}
 
-        match v {
-            Value::Object(obj_val) => flatten_object(
-                builder,
-                Some(expanded_identifier.as_str()),
-                obj_val,
-                arr,
-                separator,
-            ),
-            Value::Array(obj_arr) => {
-                flatten_array(builder, expanded_identifier.as_str(), obj_arr, separator)
+impl<'a> Flattener<'a> {
+    pub fn new() -> Self {
+        Flattener {
+            ..Default::default()
+        }
+    }
+
+    pub fn flatten(&self, json: &Value) -> Value {
+        let mut flattened_val = Map::<String, Value>::new();
+        match json {
+            Value::Array(obj_arr) => self.flatten_array(&mut flattened_val, "", obj_arr),
+            Value::Object(obj_val) => self.flatten_object(&mut flattened_val, None, obj_val, false),
+            _ => {}
+        }
+        Value::Object(flattened_val)
+    }
+
+    fn flatten_object(
+        &self,
+        builder: &mut Map<String, Value>,
+        identifier: Option<&str>,
+        obj: &Map<String, Value>,
+        arr: bool,
+    ) {
+        for (k, v) in obj {
+            let expanded_identifier = identifier.map_or_else(
+                || k.clone(),
+                |identifier| format!("{identifier}{}{k}", self.separator),
+            );
+
+            match v {
+                Value::Object(obj_val) => {
+                    self.flatten_object(builder, Some(expanded_identifier.as_str()), obj_val, arr)
+                }
+                Value::Array(obj_arr) => {
+                    self.flatten_array(builder, expanded_identifier.as_str(), obj_arr)
+                }
+                _ => self.flatten_value(builder, expanded_identifier.as_str(), v, arr),
             }
-            _ => flatten_value(builder, expanded_identifier.as_str(), v, arr),
         }
     }
-}
 
-fn flatten_array(
-    builder: &mut Map<String, Value>,
-    identifier: &str,
-    obj: &Vec<Value>,
-    separator: Option<&str>,
-) {
-    for v in obj {
-        match v {
-            Value::Object(obj_val) => {
-                flatten_object(builder, Some(identifier), obj_val, false, separator)
+    fn flatten_array(&self, builder: &mut Map<String, Value>, identifier: &str, obj: &Vec<Value>) {
+        for v in obj {
+            match v {
+                Value::Object(obj_val) => {
+                    self.flatten_object(builder, Some(identifier), obj_val, false)
+                }
+                Value::Array(obj_arr) => self.flatten_array(builder, identifier, obj_arr),
+                _ => self.flatten_value(builder, identifier, v, true),
             }
-            Value::Array(obj_arr) => flatten_array(builder, identifier, obj_arr, separator),
-            _ => flatten_value(builder, identifier, v, true),
         }
     }
-}
 
-fn flatten_value(builder: &mut Map<String, Value>, identifier: &str, obj: &Value, arr: bool) {
-    if let Some(v) = builder.get_mut(identifier) {
-        if let Some(arr) = v.as_array_mut() {
-            arr.push(obj.clone());
-        } else {
-            let new_val = json!(vec![v, obj]);
-            builder.remove(identifier);
-            builder.insert(identifier.to_string(), new_val);
-        }
-    } else {
-        builder.insert(
-            identifier.to_string(),
-            if arr {
-                json!(vec![obj.clone()])
+    fn flatten_value(
+        &self,
+        builder: &mut Map<String, Value>,
+        identifier: &str,
+        obj: &Value,
+        arr: bool,
+    ) {
+        if let Some(v) = builder.get_mut(identifier) {
+            if let Some(arr) = v.as_array_mut() {
+                arr.push(obj.clone());
             } else {
-                obj.clone()
-            },
-        );
+                let new_val = json!(vec![v, obj]);
+                builder.remove(identifier);
+                builder.insert(identifier.to_string(), new_val);
+            }
+        } else {
+            builder.insert(
+                identifier.to_string(),
+                if arr {
+                    json!(vec![obj.clone()])
+                } else {
+                    obj.clone()
+                },
+            );
+        }
     }
 }
 
@@ -90,6 +102,7 @@ mod tests {
 
     #[test]
     fn serde_example() {
+        let flattener = Flattener::new();
         let base: Value = json!({
             "name": "John Doe",
             "age": 43,
@@ -103,8 +116,8 @@ mod tests {
             ]
         });
 
-        let flat = flatten(&base, None);
-        
+        let flat = flattener.flatten(&base);
+
         assert_eq!(
             flat,
             json!({
@@ -122,13 +135,14 @@ mod tests {
 
     #[test]
     fn collision_object() {
+        let flattener = Flattener::new();
         let base: Value = json!({
           "a": {
             "b": "c",
           },
           "a.b": "d",
         });
-        let flat = flatten(&base, None);
+        let flat = flattener.flatten(&base);
 
         assert_eq!(
             flat,
@@ -140,6 +154,8 @@ mod tests {
 
     #[test]
     fn collision_array() {
+        let flattener = Flattener::new();
+
         let base: Value = json!({
           "a": [
             { "b": "c" },
@@ -148,7 +164,8 @@ mod tests {
           ],
           "a.b": "f",
         });
-        let flat = flatten(&base, None);
+
+        let flat = flattener.flatten(&base);
 
         assert_eq!(
             flat,
@@ -162,6 +179,8 @@ mod tests {
 
     #[test]
     fn nested_arrays() {
+        let flattener = Flattener::new();
+
         let base: Value = json!({
           "a": [
             ["b", "c"],
@@ -174,7 +193,7 @@ mod tests {
             ["k", "l"],
           ]
         });
-        let flat = flatten(&base, None);
+        let flat = flattener.flatten(&base);
 
         assert_eq!(
             flat,
@@ -188,6 +207,8 @@ mod tests {
 
     #[test]
     fn nested_arrays_and_objects() {
+        let flattener = Flattener::new();
+
         let base: Value = json!({
           "a": [
             "b",
@@ -201,7 +222,7 @@ mod tests {
             "m",
           ]
         });
-        let flat = flatten(&base, None);
+        let flat = flattener.flatten(&base);
 
         assert_eq!(
             flat,
@@ -216,12 +237,14 @@ mod tests {
 
     #[test]
     fn custom_separator() {
+        let flattener = Flattener { separator: "$" };
+
         let input: Value = json!({
         "a": {
             "b": 1
         }});
 
-        let result: Value = flatten(&input, Some("$"));
+        let result: Value = flattener.flatten(&input);
         assert_eq!(
             result,
             json!({
@@ -231,6 +254,8 @@ mod tests {
     }
     #[test]
     fn object() {
+        let flattener = Flattener::new();
+
         let input: Value = json!({
             "a": {
                 "b": "1",
@@ -239,7 +264,7 @@ mod tests {
             }
         });
 
-        let result: Value = flatten(&input, None);
+        let result: Value = flattener.flatten(&input);
         assert_eq!(
             result,
             json!({
@@ -252,6 +277,8 @@ mod tests {
 
     #[test]
     fn array() {
+        let flattener = Flattener::new();
+
         let input: Value = json!({
             "a": [
                 {"b": "1"},
@@ -260,7 +287,7 @@ mod tests {
             ]
         });
 
-        let result: Value = flatten(&input, None);
+        let result: Value = flattener.flatten(&input);
         assert_eq!(
             result,
             json!({
@@ -271,13 +298,15 @@ mod tests {
 
     #[test]
     fn array_no_collision() {
+        let flattener = Flattener::new();
+
         let input: Value = json!({
             "a": [
                 {"b": ["1"]}
             ]
         });
 
-        let result: Value = flatten(&input, None);
+        let result: Value = flattener.flatten(&input);
         assert_eq!(
             result,
             json!({
@@ -289,9 +318,11 @@ mod tests {
     // its allowed https://ecma-international.org/publications-and-standards/standards/ecma-404/
     #[test]
     fn arr_no_key() {
+        let flattener = Flattener::new();
+
         let input: Value = json!(["a", "b"]);
 
-        let result: Value = flatten(&input, None);
+        let result: Value = flattener.flatten(&input);
 
         assert_eq!(result, json!({"": ["a", "b"]}));
     }
@@ -299,6 +330,8 @@ mod tests {
     // its allowed https://ecma-international.org/publications-and-standards/standards/ecma-404/
     #[test]
     fn arr_empty_key() {
+        let flattener = Flattener::new();
+
         let input: Value = json!({
             "": [
                 "a",
@@ -306,7 +339,7 @@ mod tests {
                 {"b": ["1"]}
             ],
         });
-        let result: Value = flatten(&input, None);
+        let result: Value = flattener.flatten(&input);
 
         assert_eq!(result, json!({"": ["a", "b"], ".b": ["1"]}));
     }
