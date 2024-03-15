@@ -4,11 +4,15 @@ use serde_json::Value;
 
 pub struct Flattener<'a> {
     pub separator: &'a str,
+    pub alt_array_flattening: bool,
 }
 
 impl<'a> Default for Flattener<'a> {
     fn default() -> Self {
-        Flattener { separator: "." }
+        Flattener {
+            separator: ".",
+            alt_array_flattening: false,
+        }
     }
 }
 
@@ -57,9 +61,12 @@ impl<'a> Flattener<'a> {
     fn flatten_array(&self, builder: &mut Map<String, Value>, identifier: &str, obj: &Vec<Value>) {
         for v in obj {
             match v {
-                Value::Object(obj_val) => {
-                    self.flatten_object(builder, Some(identifier), obj_val, false)
-                }
+                Value::Object(obj_val) => self.flatten_object(
+                    builder,
+                    Some(identifier),
+                    obj_val,
+                    self.alt_array_flattening,
+                ),
                 Value::Array(obj_arr) => self.flatten_array(builder, identifier, obj_arr),
                 _ => self.flatten_value(builder, identifier, v, true),
             }
@@ -155,6 +162,10 @@ mod tests {
     #[test]
     fn collision_array() {
         let flattener = Flattener::new();
+        let flattener_alt = Flattener {
+            alt_array_flattening: true,
+            ..Default::default()
+        };
 
         let base: Value = json!({
           "a": [
@@ -166,6 +177,7 @@ mod tests {
         });
 
         let flat = flattener.flatten(&base);
+        let flat_alt = flattener_alt.flatten(&base);
 
         assert_eq!(
             flat,
@@ -175,11 +187,24 @@ mod tests {
                 "a": [35],
             })
         );
+
+        assert_eq!(
+            flat_alt,
+            json!({
+                "a.b": ["c", "d", "f"],
+                "a.c": ["e"],
+                "a": [35],
+            })
+        );
     }
 
     #[test]
     fn nested_arrays() {
         let flattener = Flattener::new();
+        let flattener_alt = Flattener {
+            alt_array_flattening: true,
+            ..Default::default()
+        };
 
         let base: Value = json!({
           "a": [
@@ -194,6 +219,7 @@ mod tests {
           ]
         });
         let flat = flattener.flatten(&base);
+        let flat_alt = flattener_alt.flatten(&base);
 
         assert_eq!(
             flat,
@@ -203,11 +229,24 @@ mod tests {
                 "a.h": "i",
             })
         );
+
+        assert_eq!(
+            flat_alt,
+            json!({
+                "a": ["b", "c", "f", "g", "k", "l"],
+                "a.d": ["e", "j"],
+                "a.h": ["i"],
+            })
+        );
     }
 
     #[test]
     fn nested_arrays_and_objects() {
         let flattener = Flattener::new();
+        let flattener_alt = Flattener {
+            alt_array_flattening: true,
+            ..Default::default()
+        };
 
         let base: Value = json!({
           "a": [
@@ -223,6 +262,7 @@ mod tests {
           ]
         });
         let flat = flattener.flatten(&base);
+        let flat_alt = flattener_alt.flatten(&base);
 
         assert_eq!(
             flat,
@@ -233,11 +273,24 @@ mod tests {
                 "a.e.z": "y",
             })
         );
+
+        assert_eq!(
+            flat_alt,
+            json!({
+                "a": ["b", "c", "d", "l", "m"],
+                "a.e": ["f", "g", "j"],
+                "a.h": ["i"],
+                "a.e.z": ["y"],
+            })
+        )
     }
 
     #[test]
     fn custom_separator() {
-        let flattener = Flattener { separator: "$" };
+        let flattener = Flattener {
+            separator: "$",
+            ..Default::default()
+        };
 
         let input: Value = json!({
         "a": {
