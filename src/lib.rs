@@ -1,4 +1,7 @@
+#![allow(unknown_lints)]
 #![deny(missing_docs)]
+#![deny(rustdoc::missing_doc_code_examples)]
+
 //! smooth-json
 //!
 //! `smooth-json` provides a utility to flatten a `serde_json` `Value` into a flat `serde_json` `Object`
