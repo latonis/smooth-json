@@ -2,8 +2,11 @@ use serde_json::json;
 use serde_json::Map;
 use serde_json::Value;
 
+/// Flattener is the main driver when flattening JSON
 pub struct Flattener<'a> {
+    /// Alternate separator used between keys when flattening
     pub separator: &'a str,
+    /// Opinionated flattening format that places values in an array if the object is nested inside an array
     pub alt_array_flattening: bool,
 }
 
@@ -17,12 +20,46 @@ impl<'a> Default for Flattener<'a> {
 }
 
 impl<'a> Flattener<'a> {
+    /// Returns a flattener with the default arguments
+    /// # Examples
+    /// ```
+    /// use smooth_json;
+    ///
+    /// let flattener = smooth_json::Flattener::new();
+    /// ```
     pub fn new() -> Self {
         Flattener {
             ..Default::default()
         }
     }
 
+    /// Flattens JSON variants into a JSON object
+    ///
+    /// # Arguments
+    ///
+    /// * `json` - A serde_json Value to flatten
+    ///
+    /// # Examples
+    /// ```
+    /// use smooth_json;
+    /// use serde_json::json;
+    ///
+    /// let flattener = smooth_json::Flattener::new();
+    /// let example = json!({
+    ///     "name": "John Doe",
+    ///     "age": 43,
+    ///     "address": {
+    ///         "street": "10 Downing Street",
+    ///         "city": "London"
+    ///     },
+    ///     "phones": [
+    ///         "+44 1234567",
+    ///         "+44 2345678"
+    ///     ]
+    ///  });
+    ///
+    /// let flattened_example = flattener.flatten(&example);
+    /// ```
     pub fn flatten(&self, json: &Value) -> Value {
         let mut flattened_val = Map::<String, Value>::new();
         match json {
