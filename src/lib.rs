@@ -1,3 +1,8 @@
+#![deny(missing_docs)]
+//! smooth-json
+//!
+//! `smooth-json` provides a utility to flatten a `serde_json` `Value` into a flat `serde_json` `Object`
+
 use serde_json::json;
 use serde_json::Map;
 use serde_json::Value;
@@ -5,8 +10,18 @@ use serde_json::Value;
 /// Flattener is the main driver when flattening JSON
 pub struct Flattener<'a> {
     /// Alternate separator used between keys when flattening
+    /// # Examples
+    /// ```
+    /// use smooth_json;
+    /// let flattener = smooth_json::Flattener { separator: "_", ..Default::default()};
+    /// ```
     pub separator: &'a str,
     /// Opinionated flattening format that places values in an array if the object is nested inside an array
+    /// # Examples
+    /// ```
+    /// use smooth_json;
+    /// let flattener = smooth_json::Flattener { alt_array_flattening: true, ..Default::default()};
+    /// ```
     pub alt_array_flattening: bool,
 }
 
