@@ -2,12 +2,22 @@
 //! smooth-json
 //!
 //! `smooth-json` provides a utility to flatten a `serde_json` `Value` into a flat `serde_json` `Object`
+//! # Examples
+//! ```
+//! use smooth_json::Flattener;
+//! ```
 
 use serde_json::json;
 use serde_json::Map;
 use serde_json::Value;
 
 /// Flattener is the main driver when flattening JSON
+/// # Examples
+/// ```
+/// use smooth_json;
+///
+/// let flattener = smooth_json::Flattener { ..Default::default() };
+/// ```
 pub struct Flattener<'a> {
     /// Alternate separator used between keys when flattening
     /// # Examples
@@ -34,6 +44,21 @@ impl<'a> Default for Flattener<'a> {
     }
 }
 
+/// This implementation defines the core usage for the `Flattener` structure.
+/// # Examples
+/// ```
+/// use smooth_json;
+/// use serde_json::json;
+///
+/// let flattener = smooth_json::Flattener::new();
+/// let example = json!({
+///     "a": {
+///         "b": "c"
+///     }
+///  });
+///
+/// let flattened_example = flattener.flatten(&example);
+/// ```
 impl<'a> Flattener<'a> {
     /// Returns a flattener with the default arguments
     /// # Examples
