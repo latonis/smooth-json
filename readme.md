@@ -114,5 +114,33 @@ fn main() {
     }
     */
 }
+```
 
+### Completely Flat JSON (keep array position in key)
+```rust
+use serde_json::json;
+use smooth_json;
+
+fn main() {
+    let flattener = smooth_json::Flattener{ 
+        alt_array_flattening: true,
+        ..Default::default()
+    };
+
+    let example: Value = json!({
+        "a": [
+            "b",
+            ["c", "d"],
+        ]
+    });
+
+    let flattened_example = flattener.flatten(&example);
+    println!("{}", flattened_example);
+    /*
+    {
+        "a.0": "b",
+        "a.1.0": "c",
+        "a.1.1": "d"
+    }
+    */
 ```

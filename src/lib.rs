@@ -36,6 +36,13 @@ pub struct Flattener<'a> {
     /// let flattener = smooth_json::Flattener { alt_array_flattening: true, ..Default::default()};
     /// ```
     pub alt_array_flattening: bool,
+    /// Completely flatten JSON and keep array structure in the key when flattening
+    /// # Examples
+    /// ```
+    /// use smooth_json;
+    /// let flattener = smooth_json::Flattener { preserve_arrays: true, ..Default::default()};
+    /// ```
+    pub preserve_arrays: bool,
 }
 
 impl<'a> Default for Flattener<'a> {
@@ -43,6 +50,7 @@ impl<'a> Default for Flattener<'a> {
         Flattener {
             separator: ".",
             alt_array_flattening: false,
+            preserve_arrays: false,
         }
     }
 }
@@ -106,9 +114,11 @@ impl<'a> Flattener<'a> {
     pub fn flatten(&self, json: &Value) -> Value {
         let mut flattened_val = Map::<String, Value>::new();
         match json {
-            Value::Array(obj_arr) => self.flatten_array(&mut flattened_val, "", obj_arr),
+            Value::Array(obj_arr) => {
+                self.flatten_array(&mut flattened_val, &"".to_string(), obj_arr)
+            }
             Value::Object(obj_val) => self.flatten_object(&mut flattened_val, None, obj_val, false),
-            _ => self.flatten_value(&mut flattened_val, "", json, false),
+            _ => self.flatten_value(&mut flattened_val, &"".to_string(), json, false),
         }
         Value::Object(flattened_val)
     }
@@ -116,7 +126,7 @@ impl<'a> Flattener<'a> {
     fn flatten_object(
         &self,
         builder: &mut Map<String, Value>,
-        identifier: Option<&str>,
+        identifier: Option<&String>,
         obj: &Map<String, Value>,
         arr: bool,
     ) {
@@ -128,27 +138,52 @@ impl<'a> Flattener<'a> {
 
             match v {
                 Value::Object(obj_val) => {
-                    self.flatten_object(builder, Some(expanded_identifier.as_str()), obj_val, arr)
+                    self.flatten_object(builder, Some(&expanded_identifier), obj_val, arr)
                 }
-                Value::Array(obj_arr) => {
-                    self.flatten_array(builder, expanded_identifier.as_str(), obj_arr)
-                }
-                _ => self.flatten_value(builder, expanded_identifier.as_str(), v, arr),
+                Value::Array(obj_arr) => self.flatten_array(builder, &expanded_identifier, obj_arr),
+                _ => self.flatten_value(builder, &expanded_identifier, v, arr),
             }
         }
     }
 
-    fn flatten_array(&self, builder: &mut Map<String, Value>, identifier: &str, obj: &Vec<Value>) {
-        for v in obj {
+    fn flatten_array(
+        &self,
+        builder: &mut Map<String, Value>,
+        identifier: &String,
+        obj: &Vec<Value>,
+    ) {
+        for (k, v) in obj.iter().enumerate() {
+            let with_key = format!("{identifier}{}{k}", self.separator);
             match v {
                 Value::Object(obj_val) => self.flatten_object(
                     builder,
-                    Some(identifier),
+                    Some(if self.preserve_arrays {
+                        &with_key
+                    } else {
+                        identifier
+                    }),
                     obj_val,
                     self.alt_array_flattening,
                 ),
-                Value::Array(obj_arr) => self.flatten_array(builder, identifier, obj_arr),
-                _ => self.flatten_value(builder, identifier, v, true),
+                Value::Array(obj_arr) => self.flatten_array(
+                    builder,
+                    if self.preserve_arrays {
+                        &with_key
+                    } else {
+                        identifier
+                    },
+                    obj_arr,
+                ),
+                _ => self.flatten_value(
+                    builder,
+                    if self.preserve_arrays {
+                        &with_key
+                    } else {
+                        identifier
+                    },
+                    v,
+                    self.alt_array_flattening,
+                ),
             }
         }
     }
@@ -156,7 +191,7 @@ impl<'a> Flattener<'a> {
     fn flatten_value(
         &self,
         builder: &mut Map<String, Value>,
-        identifier: &str,
+        identifier: &String,
         obj: &Value,
         arr: bool,
     ) {
@@ -264,7 +299,7 @@ mod tests {
             json!({
                 "a.b": ["c", "d", "f"],
                 "a.c": "e",
-                "a": [35],
+                "a": 35,
             })
         );
 
@@ -430,8 +465,38 @@ mod tests {
     }
 
     #[test]
+    fn array_preserve() {
+        let flattener = Flattener {
+            preserve_arrays: true,
+            ..Default::default()
+        };
+
+        let input: Value = json!({
+            "a": [
+                {"b": "1"},
+                {"b": "2"},
+                {"b": "3"},
+            ]
+        });
+
+        let result: Value = flattener.flatten(&input);
+        assert_eq!(
+            result,
+            json!({
+                "a.0.b": "1",
+                "a.1.b": "2",
+                "a.2.b": "3"
+            })
+        );
+    }
+
+    #[test]
     fn array_no_collision() {
         let flattener = Flattener::new();
+        let flattener_alt = Flattener {
+            alt_array_flattening: true,
+            ..Default::default()
+        };
 
         let input: Value = json!({
             "a": [
@@ -439,9 +504,18 @@ mod tests {
             ]
         });
 
-        let result: Value = flattener.flatten(&input);
+        let flat: Value = flattener.flatten(&input);
+        let flat_alt = flattener_alt.flatten(&input);
+
         assert_eq!(
-            result,
+            flat,
+            json!({
+                "a.b": "1"
+            })
+        );
+
+        assert_eq!(
+            flat_alt,
             json!({
                 "a.b": ["1"]
             })
@@ -474,7 +548,7 @@ mod tests {
         });
         let result: Value = flattener.flatten(&input);
 
-        assert_eq!(result, json!({"": ["a", "b"], ".b": ["1"]}));
+        assert_eq!(result, json!({"": ["a", "b"], ".b": "1"}));
     }
 
     #[test]
@@ -485,5 +559,45 @@ mod tests {
         let result: Value = flattener.flatten(&input);
 
         assert_eq!(result, json!({"": "abc"}));
+    }
+
+    #[test]
+    fn nested_array_preserve() {
+        let flattener = Flattener {
+            preserve_arrays: true,
+            ..Default::default()
+        };
+
+        let input: Value = json!({
+        "a": [
+                    "b",
+                    ["c", "d"],
+                    { "e": ["f", "g"] },
+                    [
+                        { "h": "i" },
+                        { "e": ["j", { "z": "y" }] }
+                    ],
+                    ["l"],
+                    "m"
+                 ]
+        });
+
+        let result: Value = flattener.flatten(&input);
+
+        assert_eq!(
+            result,
+            json!({
+              "a.0": "b",
+              "a.1.0": "c",
+              "a.1.1": "d",
+              "a.2.e.0": "f",
+              "a.2.e.1": "g",
+              "a.3.0.h": "i",
+              "a.3.1.e.0": "j",
+              "a.3.1.e.1.z": "y",
+              "a.4.0": "l",
+              "a.5": "m"
+            })
+        )
     }
 }
