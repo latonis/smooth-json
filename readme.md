@@ -123,7 +123,7 @@ use smooth_json;
 
 fn main() {
     let flattener = smooth_json::Flattener{ 
-        alt_array_flattening: true,
+        preserve_arrays: true,
         ..Default::default()
     };
 
