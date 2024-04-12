@@ -1,10 +1,10 @@
 [package]
 name = "smooth-json"
 authors = ["Jacob Latonis"]
-description = "Flatten serde_json Value variants into serde_json Objects ready for use in columnar or table-like usages."
+description = "smooth-json is an opinionated, customizable utility to flatten serde_json Value variants into serde_json Objects ready for use in columnar or table-like usages."
 readme = "readme.md"
 license = "MIT"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 repository = "https://github.com/latonis/smooth-json"
 keywords = ["flatten", "json", "parquet", "smooth", "unnest"]
