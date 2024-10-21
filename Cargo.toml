@@ -9,7 +9,8 @@ edition = "2021"
 repository = "https://github.com/latonis/smooth-json"
 keywords = ["flatten", "json", "parquet", "smooth", "unnest"]
 categories = ["data-structures"]
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# The binary target is only used by tests.
+exclude = ["/.github", "tests", "src/bin"]
 
 [dependencies]
 serde_json = "1.0"
