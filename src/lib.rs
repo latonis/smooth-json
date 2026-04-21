@@ -84,6 +84,11 @@ impl<'a> Flattener<'a> {
         }
     }
 
+    /// Builds a key by combining prefix, separator, and suffix
+    fn build_key(&self, prefix: &str, suffix: &str) -> String {
+        format!("{prefix}{}{suffix}", self.separator)
+    }
+
     /// Flattens JSON variants into a JSON object
     ///
     /// # Arguments
@@ -133,7 +138,7 @@ impl<'a> Flattener<'a> {
         for (k, v) in obj {
             let expanded_identifier = match identifier {
                 None => k.clone(),
-                Some(id) => format!("{id}{}{k}", self.separator),
+                Some(id) => self.build_key(id, k),
             };
 
             match v {
@@ -153,7 +158,7 @@ impl<'a> Flattener<'a> {
         obj: &Vec<Value>,
     ) {
         for (k, v) in obj.iter().enumerate() {
-            let with_key = format!("{identifier}{}{k}", self.separator);
+            let with_key = self.build_key(identifier, &k.to_string());
             let current_identifier = if self.preserve_arrays {
                 &with_key
             } else {
