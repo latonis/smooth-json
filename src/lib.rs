@@ -84,6 +84,20 @@ impl<'a> Flattener<'a> {
         }
     }
 
+    /// Builds a composite key by combining a prefix and suffix with the configured separator.
+    ///
+    /// # Arguments
+    ///
+    /// * `prefix` - The prefix part of the key (can be empty string for root level)
+    /// * `suffix` - The suffix part of the key
+    ///
+    /// # Returns
+    ///
+    /// A formatted key string with the separator inserted between prefix and suffix.
+    fn build_key(&self, prefix: &str, suffix: &str) -> String {
+        format!("{prefix}{}{suffix}", self.separator)
+    }
+
     /// Flattens JSON variants into a JSON object
     ///
     /// # Arguments
@@ -114,11 +128,9 @@ impl<'a> Flattener<'a> {
     pub fn flatten(&self, json: &Value) -> Value {
         let mut flattened_val = Map::<String, Value>::new();
         match json {
-            Value::Array(obj_arr) => {
-                self.flatten_array(&mut flattened_val, &"".to_string(), obj_arr)
-            }
+            Value::Array(obj_arr) => self.flatten_array(&mut flattened_val, "", obj_arr),
             Value::Object(obj_val) => self.flatten_object(&mut flattened_val, None, obj_val, false),
-            _ => self.flatten_value(&mut flattened_val, &"".to_string(), json, false),
+            _ => self.flatten_value(&mut flattened_val, "", json, false),
         }
         Value::Object(flattened_val)
     }
@@ -126,64 +138,46 @@ impl<'a> Flattener<'a> {
     fn flatten_object(
         &self,
         builder: &mut Map<String, Value>,
-        identifier: Option<&String>,
+        identifier: Option<&str>,
         obj: &Map<String, Value>,
         arr: bool,
     ) {
         for (k, v) in obj {
-            let expanded_identifier = identifier.map_or_else(
-                || k.clone(),
-                |identifier| format!("{identifier}{}{k}", self.separator),
-            );
+            let expanded_identifier = match identifier {
+                None => k.clone(),
+                Some(id) => self.build_key(id, k),
+            };
 
             match v {
                 Value::Object(obj_val) => {
-                    self.flatten_object(builder, Some(&expanded_identifier), obj_val, arr)
+                    self.flatten_object(builder, Some(expanded_identifier.as_str()), obj_val, arr)
                 }
-                Value::Array(obj_arr) => self.flatten_array(builder, &expanded_identifier, obj_arr),
-                _ => self.flatten_value(builder, &expanded_identifier, v, arr),
+                Value::Array(obj_arr) => {
+                    self.flatten_array(builder, expanded_identifier.as_str(), obj_arr)
+                }
+                _ => self.flatten_value(builder, expanded_identifier.as_str(), v, arr),
             }
         }
     }
 
-    fn flatten_array(
-        &self,
-        builder: &mut Map<String, Value>,
-        identifier: &String,
-        obj: &Vec<Value>,
-    ) {
+    fn flatten_array(&self, builder: &mut Map<String, Value>, identifier: &str, obj: &[Value]) {
         for (k, v) in obj.iter().enumerate() {
-            let with_key = format!("{identifier}{}{k}", self.separator);
+            let with_key = self.build_key(identifier, &k.to_string());
+            let current_identifier = if self.preserve_arrays {
+                with_key.as_str()
+            } else {
+                identifier
+            };
+
             match v {
                 Value::Object(obj_val) => self.flatten_object(
                     builder,
-                    Some(if self.preserve_arrays {
-                        &with_key
-                    } else {
-                        identifier
-                    }),
+                    Some(current_identifier),
                     obj_val,
                     self.alt_array_flattening,
                 ),
-                Value::Array(obj_arr) => self.flatten_array(
-                    builder,
-                    if self.preserve_arrays {
-                        &with_key
-                    } else {
-                        identifier
-                    },
-                    obj_arr,
-                ),
-                _ => self.flatten_value(
-                    builder,
-                    if self.preserve_arrays {
-                        &with_key
-                    } else {
-                        identifier
-                    },
-                    v,
-                    self.alt_array_flattening,
-                ),
+                Value::Array(obj_arr) => self.flatten_array(builder, current_identifier, obj_arr),
+                _ => self.flatten_value(builder, current_identifier, v, self.alt_array_flattening),
             }
         }
     }
@@ -191,27 +185,29 @@ impl<'a> Flattener<'a> {
     fn flatten_value(
         &self,
         builder: &mut Map<String, Value>,
-        identifier: &String,
+        identifier: &str,
         obj: &Value,
         arr: bool,
     ) {
-        if let Some(v) = builder.get_mut(identifier) {
-            if let Some(arr) = v.as_array_mut() {
-                arr.push(obj.clone());
-            } else {
-                let new_val = json!(vec![v, obj]);
-                builder.remove(identifier);
-                builder.insert(identifier.to_string(), new_val);
+        let key = identifier.to_string();
+
+        match builder.entry(key) {
+            serde_json::map::Entry::Occupied(mut entry) => {
+                let value = entry.get_mut();
+                if let Some(array) = value.as_array_mut() {
+                    array.push(obj.clone());
+                } else {
+                    let existing = value.clone();
+                    *value = json!(vec![existing, obj.clone()]);
+                }
             }
-        } else {
-            builder.insert(
-                identifier.to_string(),
-                if arr {
+            serde_json::map::Entry::Vacant(entry) => {
+                entry.insert(if arr {
                     json!(vec![obj.clone()])
                 } else {
                     obj.clone()
-                },
-            );
+                });
+            }
         }
     }
 }
@@ -599,5 +595,94 @@ mod tests {
               "a.5": "m"
             })
         )
+    }
+
+    #[test]
+    fn keys_with_separator() {
+        let flattener = Flattener::new();
+
+        let input: Value = json!({
+            "a.b": "value1",
+            "a": {
+                "b": "value2"
+            }
+        });
+
+        let result = flattener.flatten(&input);
+
+        // Both "a.b" literal key and nested "a.b" should result in collision as an array
+        // Order may vary based on map iteration
+        match &result["a.b"] {
+            Value::Array(arr) => {
+                assert_eq!(arr.len(), 2);
+                assert!(arr.contains(&Value::String("value1".to_string())));
+                assert!(arr.contains(&Value::String("value2".to_string())));
+            }
+            _ => panic!("Expected array for collided keys"),
+        }
+    }
+
+    #[test]
+    fn null_values() {
+        let flattener = Flattener::new();
+
+        let input: Value = json!({
+            "a": null,
+            "b": {
+                "c": null,
+                "d": "value"
+            },
+            "e": [null, "text", null]
+        });
+
+        let result = flattener.flatten(&input);
+
+        assert_eq!(
+            result,
+            json!({
+                "a": null,
+                "b.c": null,
+                "b.d": "value",
+                "e": [null, "text", null]
+            })
+        );
+    }
+
+    #[test]
+    fn collision_stress_test() {
+        let flattener = Flattener::new();
+
+        // Create a structure with many collisions to stress test the Entry API
+        let input: Value = json!({
+            "x": "value1",
+            "data": [
+                { "x": "value2" },
+                { "x": "value3" },
+                { "x": "value4" },
+                { "x": "value5" }
+            ]
+        });
+
+        let result = flattener.flatten(&input);
+
+        // Should have two keys: "x" and "data.x", both should be arrays
+        assert!(result.get("x").is_some());
+        assert!(result.get("data.x").is_some());
+
+        match &result["x"] {
+            Value::String(s) => assert_eq!(s, "value1"),
+            _ => panic!("Expected string for 'x'"),
+        }
+
+        match &result["data.x"] {
+            Value::Array(arr) => {
+                assert_eq!(arr.len(), 4);
+                assert_eq!(arr[0], Value::String("value2".to_string()));
+                assert_eq!(arr[1], Value::String("value3".to_string()));
+                assert_eq!(arr[2], Value::String("value4".to_string()));
+                assert_eq!(arr[3], Value::String("value5".to_string()));
+            }
+            _ => panic!("Expected array for 'data.x'"),
+        }
     }
 }

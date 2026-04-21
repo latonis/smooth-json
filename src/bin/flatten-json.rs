@@ -4,7 +4,6 @@
 use std::fs;
 
 use serde_json::Value;
-use smooth_json;
 fn main() {
     let flattener = smooth_json::Flattener::new();
     // get all files in the directory
