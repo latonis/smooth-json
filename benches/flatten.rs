@@ -1,6 +1,6 @@
 // smooth-json/benches/flatten.rs
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use serde_json::{json, Map, Value};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use serde_json::{Map, Value, json};
 use smooth_json::Flattener;
 
 /// Build a nested object of the given depth and breadth. Example shape:
@@ -60,15 +60,19 @@ fn bench_flatten_inputs(c: &mut Criterion) {
         });
 
         // alt_array_flattening = true
-        group.bench_with_input(BenchmarkId::new("alt_array_flattening", name), &input, |b, v| {
-            let fl = Flattener {
-                alt_array_flattening: true,
-                ..Default::default()
-            };
-            b.iter(|| {
-                let _ = fl.flatten(black_box(v));
-            })
-        });
+        group.bench_with_input(
+            BenchmarkId::new("alt_array_flattening", name),
+            &input,
+            |b, v| {
+                let fl = Flattener {
+                    alt_array_flattening: true,
+                    ..Default::default()
+                };
+                b.iter(|| {
+                    let _ = fl.flatten(black_box(v));
+                })
+            },
+        );
     }
 
     group.finish();
@@ -94,15 +98,19 @@ fn bench_collision_cases(c: &mut Criterion) {
         });
 
         // With alt_array_flattening enabled (different aggregation behavior)
-        group.bench_with_input(BenchmarkId::new("collisions_alt_flatten", n), &input, |b, v| {
-            let fl = Flattener {
-                alt_array_flattening: true,
-                ..Default::default()
-            };
-            b.iter(|| {
-                let _ = fl.flatten(black_box(v));
-            })
-        });
+        group.bench_with_input(
+            BenchmarkId::new("collisions_alt_flatten", n),
+            &input,
+            |b, v| {
+                let fl = Flattener {
+                    alt_array_flattening: true,
+                    ..Default::default()
+                };
+                b.iter(|| {
+                    let _ = fl.flatten(black_box(v));
+                })
+            },
+        );
     }
 
     group.finish();
