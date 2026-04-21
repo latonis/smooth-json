@@ -84,7 +84,16 @@ impl<'a> Flattener<'a> {
         }
     }
 
-    /// Builds a key by combining prefix, separator, and suffix
+    /// Builds a composite key by combining a prefix and suffix with the configured separator.
+    ///
+    /// # Arguments
+    ///
+    /// * `prefix` - The prefix part of the key (can be empty string for root level)
+    /// * `suffix` - The suffix part of the key
+    ///
+    /// # Returns
+    ///
+    /// A formatted key string with the separator inserted between prefix and suffix.
     fn build_key(&self, prefix: &str, suffix: &str) -> String {
         format!("{prefix}{}{suffix}", self.separator)
     }
@@ -120,10 +129,10 @@ impl<'a> Flattener<'a> {
         let mut flattened_val = Map::<String, Value>::new();
         match json {
             Value::Array(obj_arr) => {
-                self.flatten_array(&mut flattened_val, &"".to_string(), obj_arr)
+                self.flatten_array(&mut flattened_val, "", obj_arr)
             }
             Value::Object(obj_val) => self.flatten_object(&mut flattened_val, None, obj_val, false),
-            _ => self.flatten_value(&mut flattened_val, &"".to_string(), json, false),
+            _ => self.flatten_value(&mut flattened_val, "", json, false),
         }
         Value::Object(flattened_val)
     }
@@ -131,7 +140,7 @@ impl<'a> Flattener<'a> {
     fn flatten_object(
         &self,
         builder: &mut Map<String, Value>,
-        identifier: Option<&String>,
+        identifier: Option<&str>,
         obj: &Map<String, Value>,
         arr: bool,
     ) {
@@ -143,10 +152,10 @@ impl<'a> Flattener<'a> {
 
             match v {
                 Value::Object(obj_val) => {
-                    self.flatten_object(builder, Some(&expanded_identifier), obj_val, arr)
+                    self.flatten_object(builder, Some(expanded_identifier.as_str()), obj_val, arr)
                 }
-                Value::Array(obj_arr) => self.flatten_array(builder, &expanded_identifier, obj_arr),
-                _ => self.flatten_value(builder, &expanded_identifier, v, arr),
+                Value::Array(obj_arr) => self.flatten_array(builder, expanded_identifier.as_str(), obj_arr),
+                _ => self.flatten_value(builder, expanded_identifier.as_str(), v, arr),
             }
         }
     }
@@ -154,13 +163,13 @@ impl<'a> Flattener<'a> {
     fn flatten_array(
         &self,
         builder: &mut Map<String, Value>,
-        identifier: &String,
-        obj: &Vec<Value>,
+        identifier: &str,
+        obj: &[Value],
     ) {
         for (k, v) in obj.iter().enumerate() {
             let with_key = self.build_key(identifier, &k.to_string());
             let current_identifier = if self.preserve_arrays {
-                &with_key
+                with_key.as_str()
             } else {
                 identifier
             };
@@ -190,7 +199,7 @@ impl<'a> Flattener<'a> {
     fn flatten_value(
         &self,
         builder: &mut Map<String, Value>,
-        identifier: &String,
+        identifier: &str,
         obj: &Value,
         arr: bool,
     ) {
