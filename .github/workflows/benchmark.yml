@@ -12,13 +12,13 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -39,13 +39,13 @@ jobs:
           cat bench_output.txt
 
       - name: Comment PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             const output = fs.readFileSync('bench_output.txt', 'utf8');
-            
+
             const body = `## Benchmark Results
 
             \`\`\`
@@ -54,18 +54,18 @@ jobs:
 
             ---
             Benchmarked on commit \`${{ github.event.pull_request.head.sha }}\``;
-            
+
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
-            
-            const botComment = comments.find(c => 
-              c.user.login === 'github-actions[bot]' && 
+
+            const botComment = comments.find(c =>
+              c.user.login === 'github-actions[bot]' &&
               c.body.includes('Benchmark Results')
             );
-            
+
             if (botComment) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
