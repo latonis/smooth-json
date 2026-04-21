@@ -131,10 +131,10 @@ impl<'a> Flattener<'a> {
         arr: bool,
     ) {
         for (k, v) in obj {
-            let expanded_identifier = identifier.map_or_else(
-                || k.clone(),
-                |identifier| format!("{identifier}{}{k}", self.separator),
-            );
+            let expanded_identifier = match identifier {
+                None => k.clone(),
+                Some(id) => format!("{id}{}{k}", self.separator),
+            };
 
             match v {
                 Value::Object(obj_val) => {
