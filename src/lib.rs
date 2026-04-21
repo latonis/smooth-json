@@ -154,33 +154,27 @@ impl<'a> Flattener<'a> {
     ) {
         for (k, v) in obj.iter().enumerate() {
             let with_key = format!("{identifier}{}{k}", self.separator);
+            let current_identifier = if self.preserve_arrays {
+                &with_key
+            } else {
+                identifier
+            };
+
             match v {
                 Value::Object(obj_val) => self.flatten_object(
                     builder,
-                    Some(if self.preserve_arrays {
-                        &with_key
-                    } else {
-                        identifier
-                    }),
+                    Some(current_identifier),
                     obj_val,
                     self.alt_array_flattening,
                 ),
                 Value::Array(obj_arr) => self.flatten_array(
                     builder,
-                    if self.preserve_arrays {
-                        &with_key
-                    } else {
-                        identifier
-                    },
+                    current_identifier,
                     obj_arr,
                 ),
                 _ => self.flatten_value(
                     builder,
-                    if self.preserve_arrays {
-                        &with_key
-                    } else {
-                        identifier
-                    },
+                    current_identifier,
                     v,
                     self.alt_array_flattening,
                 ),
