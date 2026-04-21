@@ -203,23 +203,25 @@ impl<'a> Flattener<'a> {
         obj: &Value,
         arr: bool,
     ) {
-        if let Some(v) = builder.get_mut(identifier) {
-            if let Some(arr) = v.as_array_mut() {
-                arr.push(obj.clone());
-            } else {
-                let new_val = json!(vec![v, obj]);
-                builder.remove(identifier);
-                builder.insert(identifier.to_string(), new_val);
+        let key = identifier.to_string();
+        
+        match builder.entry(key) {
+            serde_json::map::Entry::Occupied(mut entry) => {
+                let value = entry.get_mut();
+                if let Some(array) = value.as_array_mut() {
+                    array.push(obj.clone());
+                } else {
+                    let existing = value.clone();
+                    *value = json!(vec![existing, obj.clone()]);
+                }
             }
-        } else {
-            builder.insert(
-                identifier.to_string(),
-                if arr {
+            serde_json::map::Entry::Vacant(entry) => {
+                entry.insert(if arr {
                     json!(vec![obj.clone()])
                 } else {
                     obj.clone()
-                },
-            );
+                });
+            }
         }
     }
 }
