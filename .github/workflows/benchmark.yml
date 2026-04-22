@@ -30,13 +30,17 @@ jobs:
         run: |
           git fetch origin ${{ github.base_ref }}
           git checkout origin/${{ github.base_ref }}
-          cargo bench --bench flatten -- --save-baseline main
+          cargo bench --bench flatten --color never -- --save-baseline main
 
       - name: Benchmark PR branch
         run: |
           git checkout ${{ github.event.pull_request.head.sha }}
-          cargo bench --bench flatten -- --baseline main > bench_output.txt 2>&1
-          cat bench_output.txt
+          cargo bench --bench flatten --color never -- --baseline main > bench_output.txt 2>&1
+
+      - name: Extract comparison summary
+        run: |
+          grep -E "^(flatten_|Benchmarking |  time:|  change:)" bench_output.txt > bench_summary.txt || true
+          cat bench_summary.txt
 
       - name: Comment PR
         uses: actions/github-script@v9
@@ -44,7 +48,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const output = fs.readFileSync('bench_output.txt', 'utf8');
+            const output = fs.readFileSync('bench_summary.txt', 'utf8');
 
             const body = `## Benchmark Results
 
