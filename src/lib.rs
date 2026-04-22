@@ -10,9 +10,9 @@
 //! use smooth_json::Flattener;
 //! ```
 
-use serde_json::json;
 use serde_json::Map;
 use serde_json::Value;
+use serde_json::json;
 
 /// Flattener is the main driver when flattening JSON
 /// # Examples
@@ -95,7 +95,11 @@ impl<'a> Flattener<'a> {
     ///
     /// A formatted key string with the separator inserted between prefix and suffix.
     fn build_key(&self, prefix: &str, suffix: &str) -> String {
-        format!("{prefix}{}{suffix}", self.separator)
+        let mut key = String::with_capacity(prefix.len() + self.separator.len() + suffix.len());
+        key.push_str(prefix);
+        key.push_str(self.separator);
+        key.push_str(suffix);
+        key
     }
 
     /// Flattens JSON variants into a JSON object
@@ -161,8 +165,18 @@ impl<'a> Flattener<'a> {
     }
 
     fn flatten_array(&self, builder: &mut Map<String, Value>, identifier: &str, obj: &[Value]) {
+        // Empty arrays should be preserved, instead of being omitted
+        if obj.is_empty() {
+            builder.insert(identifier.to_string(), Value::Array(vec![]));
+            return;
+        }
+
+        use std::fmt::Write;
+        let mut index_buf = String::new();
+
         for (k, v) in obj.iter().enumerate() {
-            let with_key = self.build_key(identifier, &k.to_string());
+            write!(&mut index_buf, "{}", k).unwrap();
+            let with_key = self.build_key(identifier, &index_buf);
             let current_identifier = if self.preserve_arrays {
                 with_key.as_str()
             } else {
@@ -179,6 +193,8 @@ impl<'a> Flattener<'a> {
                 Value::Array(obj_arr) => self.flatten_array(builder, current_identifier, obj_arr),
                 _ => self.flatten_value(builder, current_identifier, v, self.alt_array_flattening),
             }
+
+            index_buf.clear();
         }
     }
 
