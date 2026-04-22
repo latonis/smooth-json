@@ -407,7 +407,7 @@ dependencies = [
 
 [[package]]
 name = "smooth-json"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "criterion",
  "serde_json",
