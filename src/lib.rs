@@ -165,6 +165,12 @@ impl<'a> Flattener<'a> {
     }
 
     fn flatten_array(&self, builder: &mut Map<String, Value>, identifier: &str, obj: &[Value]) {
+        // Empty arrays should be preserved, instead of being omitted
+        if obj.is_empty() {
+            builder.insert(identifier.to_string(), Value::Array(vec![]));
+            return;
+        }
+
         use std::fmt::Write;
         let mut index_buf = String::new();
 
