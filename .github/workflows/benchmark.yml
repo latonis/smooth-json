@@ -39,7 +39,7 @@ jobs:
 
       - name: Extract comparison summary
         run: |
-          grep -E "^(flatten_|Benchmarking |  time:|  change:)" bench_output.txt > bench_summary.txt || true
+          grep -E "(^flatten_|^\s+(time:|thrpt:|change:)|Performance has)" bench_output.txt > bench_summary.txt || echo "No comparison data" > bench_summary.txt
           cat bench_summary.txt
 
       - name: Comment PR
