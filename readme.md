@@ -1,5 +1,5 @@
 # smooth-json
-![Publish Status](https://github.com/latonis/smooth-json/actions/workflows/build.yml/badge.svg)
+![Build Status](https://github.com/latonis/smooth-json/actions/workflows/build.yml/badge.svg)
 
 This crate allows for flattening JSON objects into objects ready for use in Parquet, CSV, or other data formats.
 
