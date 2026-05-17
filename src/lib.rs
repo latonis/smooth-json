@@ -96,8 +96,10 @@ impl<'a> Flattener<'a> {
     /// A formatted key string with the separator inserted between prefix and suffix.
     fn build_key(&self, prefix: &str, suffix: &str) -> String {
         let mut key = String::with_capacity(prefix.len() + self.separator.len() + suffix.len());
-        key.push_str(prefix);
-        key.push_str(self.separator);
+        if !prefix.is_empty() {
+            key.push_str(prefix);
+            key.push_str(self.separator);
+        }
         key.push_str(suffix);
         key
     }
@@ -213,7 +215,7 @@ impl<'a> Flattener<'a> {
                 if let Some(array) = value.as_array_mut() {
                     array.push(obj.clone());
                 } else {
-                    let existing = value.clone();
+                    let existing = std::mem::take(value);
                     *value = json!(vec![existing, obj.clone()]);
                 }
             }
@@ -560,7 +562,7 @@ mod tests {
         });
         let result: Value = flattener.flatten(&input);
 
-        assert_eq!(result, json!({"": ["a", "b"], ".b": "1"}));
+        assert_eq!(result, json!({"": ["a", "b"], "b": "1"}));
     }
 
     #[test]
