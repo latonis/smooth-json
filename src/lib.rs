@@ -215,7 +215,7 @@ impl<'a> Flattener<'a> {
                 if let Some(array) = value.as_array_mut() {
                     array.push(obj.clone());
                 } else {
-                    let existing = value.clone();
+                    let existing = std::mem::take(value);
                     *value = json!(vec![existing, obj.clone()]);
                 }
             }
