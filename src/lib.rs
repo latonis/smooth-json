@@ -96,8 +96,10 @@ impl<'a> Flattener<'a> {
     /// A formatted key string with the separator inserted between prefix and suffix.
     fn build_key(&self, prefix: &str, suffix: &str) -> String {
         let mut key = String::with_capacity(prefix.len() + self.separator.len() + suffix.len());
-        key.push_str(prefix);
-        key.push_str(self.separator);
+        if !prefix.is_empty() {
+            key.push_str(prefix);
+            key.push_str(self.separator);
+        }
         key.push_str(suffix);
         key
     }
@@ -560,7 +562,7 @@ mod tests {
         });
         let result: Value = flattener.flatten(&input);
 
-        assert_eq!(result, json!({"": ["a", "b"], ".b": "1"}));
+        assert_eq!(result, json!({"": ["a", "b"], "b": "1"}));
     }
 
     #[test]
